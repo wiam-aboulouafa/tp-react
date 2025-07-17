@@ -1,41 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-// TODO: Exercice 3.1 - Créer le hook useDebounce
-// TODO: Exercice 3.2 - Créer le hook useLocalStorage
-
-const useProductSearch = () => {
-  const [products, setProducts] = useState([]);
+const useProductSearch = (searchTerm) => {
+  const [products, setProducts] = useState([]);                // tous les produits
+  const [filteredProducts, setFilteredProducts] = useState([]); // produits filtrés
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // TODO: Exercice 4.2 - Ajouter l'état pour la pagination
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        // TODO: Exercice 4.2 - Modifier l'URL pour inclure les paramètres de pagination
-        const response = await fetch('https://api.daaif.net/products?delay=1000');
-        if (!response.ok) throw new Error('Erreur réseau');
-        const data = await response.json();
-        setProducts(data.products);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  const fetchProducts = () => {
+    setLoading(true);
+    fetch('https://api.daaif.net/products')
+      .then((res) => {
+        if (!res.ok) throw new Error('Erreur lors du chargement des produits');
+        return res.json();
+      })
+      .then((data) => {
+        const productArray = Array.isArray(data) ? data : data.products || data.data || [];
+        setProducts(productArray);
+        setFilteredProducts(productArray);
+        setCurrentPage(1); // Reset pagination
         setLoading(false);
-      } catch (err) {
+      })
+      .catch((err) => {
         setError(err.message);
         setLoading(false);
-      }
-    };
+      });
+  };
 
+  useEffect(() => {
     fetchProducts();
-  }, []); // TODO: Exercice 4.2 - Ajouter les dépendances pour la pagination
+  }, []);
 
-  // TODO: Exercice 4.1 - Ajouter la fonction de rechargement
-  // TODO: Exercice 4.2 - Ajouter les fonctions pour la pagination
+  // 🔁 Filtrage quand searchTerm change
+  useEffect(() => {
+    const filtered = !searchTerm
+      ? products
+      : products.filter((product) =>
+          product.title?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    setFilteredProducts(filtered);
+    setCurrentPage(1);
+  }, [searchTerm, products]);
 
-  return { 
-    products, 
-    loading, 
+  // ✅ Pagination
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const nextPage = () => {
+    const maxPage = Math.ceil(filteredProducts.length / itemsPerPage);
+    if (currentPage < maxPage) setCurrentPage((p) => p + 1);
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) setCurrentPage((p) => p - 1);
+  };
+
+  return {
+    products: paginatedProducts,
+    loading,
     error,
-    // TODO: Exercice 4.1 - Retourner la fonction de rechargement
-    // TODO: Exercice 4.2 - Retourner les fonctions et états de pagination
+    fetchProducts,
+    nextPage,
+    prevPage,
+    currentPage,
   };
 };
 
